@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ApexFit - Online Fitness Coaching Platform</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+    <!-- Quick Persona & Role Switcher Bar -->
+    <div id="role-bar" class="role-bar"></div>
+
+    <!-- Navigation Header -->
+    <header class="navbar">
+        <a href="/" class="brand">
+            <div class="brand-icon">⚡</div>
+            <span>ApexFit Coaching</span>
+        </a>
+        <div id="nav-user" class="nav-user"></div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="main-wrapper">
+        <!-- System Announcement Banner -->
+        <div id="announcement-container"></div>
+
+        <!-- Role Dashboards (Admin, Coach, User) -->
+        <div id="dashboard-content">
+            <div class="panel" style="text-align:center;padding:40px;">
+                <h2>Loading ApexFit Platform...</h2>
+            </div>
+        </div>
+    </main>
+
+    <!-- Reusable Modal Dialog -->
+    <div id="generic-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>Modal Title</h3>
+                <button class="modal-close" onclick="closeModal('generic-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                Modal Body
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('generic-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Application Script -->
+    <script src="js/app.js"></script>
+</body>
+</html>
