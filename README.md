@@ -1,4 +1,4 @@
-# Online Fitness Coaching Platform (Project 28)
+# Online Fitness Coaching Platform 
 
 A comprehensive, production-grade Online Fitness Coaching Platform developed using **Java** and **DBMS SQL (SQLite & MySQL compatible)**.
 
