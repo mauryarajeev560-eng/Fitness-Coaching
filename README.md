@@ -1,6 +1,12 @@
 # Online Fitness Coaching Platform 
 
-A comprehensive, production-grade Online Fitness Coaching Platform developed using **Java** and **DBMS SQL (SQLite & MySQL compatible)**.
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Render-brightgreen?style=for-the-badge&logo=render)](https://fitness-coaching-1.onrender.com)
+[![Java](https://img.shields.io/badge/Java-21%2B-orange?style=for-the-badge&logo=openjdk)](https://fitness-coaching-1.onrender.com)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-blue?style=for-the-badge&logo=postgresql)](https://fitness-coaching-1.onrender.com)
+
+> 🚀 **Live URL**: **[https://fitness-coaching-1.onrender.com](https://fitness-coaching-1.onrender.com)**
+
+A comprehensive, production-grade Online Fitness Coaching Platform developed using **Java** and **DBMS SQL (PostgreSQL & SQLite compatible)**.
 
 The platform provides a 3-role portal for **Administrators**, **Fitness Coaches**, and **Trainees/Users**, featuring workout plan management, progress tracking with charts, direct messaging, content moderation, and system settings.
 
@@ -98,9 +104,13 @@ fitness-platform/
 
 ---
 
-## 🏁 Quick Start & Running the Application
+## 🏁 Live Deployment & Quick Start
 
-### 1. Launch Platform
+### 🌐 1. Live Application
+Access the platform online 24/7 without local setup:
+👉 **[https://fitness-coaching-1.onrender.com](https://fitness-coaching-1.onrender.com)**
+
+### 💻 2. Local Setup
 Simply run the startup script from the project directory:
 
 ```bash
