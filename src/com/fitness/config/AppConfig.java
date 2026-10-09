@@ -13,11 +13,28 @@ public class AppConfig {
     public static final String SAMPLE_DATA_FILE = BASE_DIR + File.separator + "sql" + File.separator + "sample_data.sql";
     public static final String WEB_DIR = BASE_DIR + File.separator + "web";
 
-    public static final String DB_URL = System.getenv().getOrDefault(
-            "DB_URL", "jdbc:postgresql://localhost:5432/fitness_platform");
-    public static final String DB_USER = System.getenv().getOrDefault("DB_USER", "postgres");
-    public static final String DB_PASSWORD = System.getenv().getOrDefault("DB_PASSWORD", "");
+    public static final String DB_URL = resolveDbUrl();
+    public static final String DB_USER = System.getenv("DB_USER");
+    public static final String DB_PASSWORD = System.getenv("DB_PASSWORD");
     public static final String SQLITE_BIN = resolveSqliteBin();
+
+    private static String resolveDbUrl() {
+        String url = System.getenv("DB_URL");
+        if (url == null || url.trim().isEmpty()) {
+            url = System.getenv("DATABASE_URL");
+        }
+        if (url == null || url.trim().isEmpty()) {
+            return "jdbc:postgresql://localhost:5432/fitness_platform";
+        }
+        url = url.trim();
+        // Automatically ensure standard jdbc:postgresql:// prefix for Neon/Render/Supabase URLs
+        if (url.startsWith("postgres://")) {
+            url = "jdbc:postgresql://" + url.substring("postgres://".length());
+        } else if (url.startsWith("postgresql://")) {
+            url = "jdbc:postgresql://" + url.substring("postgresql://".length());
+        }
+        return url;
+    }
 
     private static String resolveSqliteBin() {
         String env = System.getenv("SQLITE_BIN");

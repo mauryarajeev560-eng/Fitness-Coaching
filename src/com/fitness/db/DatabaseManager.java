@@ -29,7 +29,15 @@ public class DatabaseManager {
      * Establishes and returns a new JDBC Connection using AppConfig properties.
      */
     public Connection getConnection() throws SQLException {
-        return DriverManager.getConnection(AppConfig.DB_URL, AppConfig.DB_USER, AppConfig.DB_PASSWORD);
+        String url = AppConfig.DB_URL;
+        String user = AppConfig.DB_USER;
+        String pass = AppConfig.DB_PASSWORD;
+
+        // If user is null or empty, allow JDBC to extract user/password from URL (e.g. Neon, Render, Supabase)
+        if (user == null || user.trim().isEmpty()) {
+            return DriverManager.getConnection(url);
+        }
+        return DriverManager.getConnection(url, user, pass != null ? pass : "");
     }
 
     private void initDatabase() {
@@ -38,7 +46,7 @@ public class DatabaseManager {
             try {
                 Class.forName("org.postgresql.Driver");
             } catch (ClassNotFoundException ignored) {
-                // Driver might be autoloaded via JDBC 4.0 SPI
+                // Driver autoloaded via JDBC 4.0 SPI
             }
 
             try (Connection conn = getConnection()) {
@@ -58,6 +66,7 @@ public class DatabaseManager {
                     if (new File(AppConfig.SAMPLE_DATA_FILE).exists()) {
                         executeSqlFile(AppConfig.SAMPLE_DATA_FILE);
                     }
+                    syncSequences();
                 }
                 System.out.println("[DatabaseManager] Database initialized successfully.");
             }
@@ -85,14 +94,30 @@ public class DatabaseManager {
             // Execute SQL statements separated by semicolons
             String[] commands = script.split(";");
             for (String cmd : commands) {
-                String trimmed = cmd.trim();
-                if (!trimmed.isEmpty() && !trimmed.startsWith("--")) {
-                    stmt.execute(trimmed);
+                // Strip SQL line comments so statements following comments are executed properly
+                String cleaned = cmd.replaceAll("(?m)^--.*$", "").trim();
+                if (!cleaned.isEmpty()) {
+                    stmt.execute(cleaned);
                 }
             }
         } catch (SQLException e) {
             throw new RuntimeException("Error executing SQL script via JDBC: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Sync PostgreSQL SERIAL sequences with current MAX(id)
+     */
+    private void syncSequences() {
+        String[] tables = {"users", "workout_plans", "plan_exercises", "workout_logs", "messages", "user_feedback"};
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement()) {
+            for (String table : tables) {
+                try {
+                    stmt.execute("SELECT setval(pg_get_serial_sequence('" + table + "', 'id'), COALESCE(max(id), 1)) FROM " + table + ";");
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
     }
 
     /**

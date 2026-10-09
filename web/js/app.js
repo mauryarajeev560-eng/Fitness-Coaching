@@ -87,7 +87,50 @@ async function quickLogin(email, password) {
         renderApp();
     } catch (err) {
         showToast(err.message, true);
+        if (!AppState.currentUser) {
+            renderStartupError(err.message);
+        }
     }
+}
+
+function renderStartupError(errorMessage) {
+    const dashboard = document.getElementById('dashboard-content');
+    if (!dashboard) return;
+    renderRoleBar();
+    renderNavbar();
+
+    const isDbError = errorMessage && (
+        errorMessage.includes('Connection') ||
+        errorMessage.includes('refused') ||
+        errorMessage.includes('Database') ||
+        errorMessage.includes('database') ||
+        errorMessage.includes('5432')
+    );
+
+    dashboard.innerHTML = `
+        <div class="panel" style="max-width:680px;margin:40px auto;text-align:center;padding:40px 30px;">
+            <div style="font-size:3rem;margin-bottom:16px;">⚠️</div>
+            <h2 style="color:#f87171;margin-bottom:12px;">Database Connection Required</h2>
+            <p style="color:#94a3b8;font-size:0.95rem;line-height:1.6;margin-bottom:20px;">
+                ${escapeHtml(errorMessage || 'Failed to connect to the backend database service.')}
+            </p>
+            ${isDbError ? `
+            <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:20px;text-align:left;font-size:0.88rem;color:#cbd5e1;margin-bottom:24px;">
+                <strong style="color:#38bdf8;display:block;margin-bottom:8px;font-size:0.95rem;">💡 Render par isse kaise theek karein:</strong>
+                <ol style="margin-left:20px;line-height:1.8;">
+                    <li>Open <strong>Render Dashboard</strong> $\\rightarrow$ Apna <strong>Fitness Coaching Web Service</strong> select karein.</li>
+                    <li>Left menu se <strong>Environment</strong> tab par click karein.</li>
+                    <li>Add karein key <code>DB_URL</code> (ya <code>DATABASE_URL</code>) aur value mein apna <strong>Neon / PostgreSQL connection string</strong> paste karein.</li>
+                    <li><strong>Save Changes</strong> par click karein — Render 1 minute mein live reload kar dega!</li>
+                </ol>
+            </div>
+            ` : ''}
+            <div style="display:flex;gap:12px;justify-content:center;">
+                <button class="btn btn-primary" onclick="quickLogin('admin@fitness.com', 'admin123')">🔄 Retry Connection</button>
+                <button class="btn btn-secondary" onclick="showLoginModal()">🔑 Manual Sign In</button>
+            </div>
+        </div>
+    `;
 }
 
 function setDefaultTabForRole(role) {
