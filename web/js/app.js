@@ -107,6 +107,23 @@ function renderStartupError(errorMessage) {
         errorMessage.includes('5432')
     );
 
+    if (errorMessage && (errorMessage.includes('Invalid email') || errorMessage.includes('password'))) {
+        dashboard.innerHTML = `
+            <div class="panel" style="max-width:560px;margin:40px auto;text-align:center;padding:40px 30px;">
+                <div style="font-size:3rem;margin-bottom:16px;">⚡</div>
+                <h2 style="color:#fff;margin-bottom:12px;">Database Connected!</h2>
+                <p style="color:#94a3b8;font-size:0.95rem;line-height:1.6;margin-bottom:24px;">
+                    PostgreSQL database is connected successfully! Click below to load demo coaches, trainees, and workout routines.
+                </p>
+                <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+                    <button class="btn btn-primary" onclick="seedAndLogin()">🌱 Seed Demo Data & Sign In</button>
+                    <button class="btn btn-secondary" onclick="showLoginModal()">🔑 Sign In / Register</button>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
     dashboard.innerHTML = `
         <div class="panel" style="max-width:680px;margin:40px auto;text-align:center;padding:40px 30px;">
             <div style="font-size:3rem;margin-bottom:16px;">⚠️</div>
@@ -131,6 +148,16 @@ function renderStartupError(errorMessage) {
             </div>
         </div>
     `;
+}
+
+async function seedAndLogin() {
+    try {
+        showToast('Seeding database tables and sample records...');
+        await apiRequest('/api/auth/seed', 'POST');
+        await quickLogin('admin@fitness.com', 'admin123');
+    } catch (e) {
+        showToast(e.message, true);
+    }
 }
 
 function setDefaultTabForRole(role) {

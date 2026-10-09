@@ -51,27 +51,53 @@ public class DatabaseManager {
 
             try (Connection conn = getConnection()) {
                 System.out.println("[DatabaseManager] Connected to PostgreSQL via JDBC: " + AppConfig.DB_URL);
-
-                // Check if users table exists in public schema
-                List<Map<String, Object>> tables = query(
-                        "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users';",
-                        Collections.emptyList()
-                );
-
-                if (tables.isEmpty()) {
-                    System.out.println("[DatabaseManager] Tables missing. Applying schema & initial data...");
-                    if (new File(AppConfig.SCHEMA_FILE).exists()) {
-                        executeSqlFile(AppConfig.SCHEMA_FILE);
-                    }
-                    if (new File(AppConfig.SAMPLE_DATA_FILE).exists()) {
-                        executeSqlFile(AppConfig.SAMPLE_DATA_FILE);
-                    }
-                    syncSequences();
-                }
+                seedIfEmpty();
                 System.out.println("[DatabaseManager] Database initialized successfully.");
             }
         } catch (Exception e) {
             System.err.println("[DatabaseManager] Database connection initialization note: " + e.getMessage());
+        }
+    }
+
+    public synchronized void seedIfEmpty() {
+        try {
+            // Check if users table exists in public schema
+            List<Map<String, Object>> tables = query(
+                    "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users';",
+                    Collections.emptyList()
+            );
+
+            if (tables.isEmpty()) {
+                System.out.println("[DatabaseManager] Tables missing. Applying schema & initial data...");
+                if (new File(AppConfig.SCHEMA_FILE).exists()) {
+                    executeSqlFile(AppConfig.SCHEMA_FILE);
+                }
+                if (new File(AppConfig.SAMPLE_DATA_FILE).exists()) {
+                    executeSqlFile(AppConfig.SAMPLE_DATA_FILE);
+                }
+                syncSequences();
+                return;
+            }
+
+            // Tables exist: check if users table is empty
+            List<Map<String, Object>> userRows = query("SELECT COUNT(*) AS cnt FROM users;", Collections.emptyList());
+            long count = 0;
+            if (!userRows.isEmpty()) {
+                Object cntObj = userRows.get(0).get("cnt");
+                if (cntObj instanceof Number) {
+                    count = ((Number) cntObj).longValue();
+                }
+            }
+
+            if (count == 0) {
+                System.out.println("[DatabaseManager] Users table is empty. Seeding sample demo data...");
+                if (new File(AppConfig.SAMPLE_DATA_FILE).exists()) {
+                    executeSqlFile(AppConfig.SAMPLE_DATA_FILE);
+                }
+                syncSequences();
+            }
+        } catch (Exception e) {
+            System.err.println("[DatabaseManager] seedIfEmpty notice: " + e.getMessage());
         }
     }
 

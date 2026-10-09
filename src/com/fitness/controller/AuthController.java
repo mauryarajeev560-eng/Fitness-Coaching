@@ -31,6 +31,9 @@ public class AuthController implements HttpHandler {
                 handleRegister(exchange);
             } else if ("/api/auth/me".equals(path) && "GET".equalsIgnoreCase(method)) {
                 handleMe(exchange);
+            } else if ("/api/auth/seed".equals(path)) {
+                com.fitness.db.DatabaseManager.getInstance().seedIfEmpty();
+                HttpUtil.sendSuccessResponse(exchange, "Sample database tables and demo seed data verified.", null);
             } else {
                 HttpUtil.sendErrorResponse(exchange, 404, "Endpoint not found: " + path);
             }
@@ -50,6 +53,12 @@ public class AuthController implements HttpHandler {
         }
 
         User user = userDao.authenticate(email, password);
+        if (user == null) {
+            // Check if users table was empty and seed
+            com.fitness.db.DatabaseManager.getInstance().seedIfEmpty();
+            user = userDao.authenticate(email, password);
+        }
+
         if (user == null) {
             HttpUtil.sendErrorResponse(exchange, 401, "Invalid email or password.");
             return;
