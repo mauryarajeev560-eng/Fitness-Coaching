@@ -17,4 +17,19 @@ public class AppConfig {
             "DB_URL", "jdbc:postgresql://localhost:5432/fitness_platform");
     public static final String DB_USER = System.getenv().getOrDefault("DB_USER", "postgres");
     public static final String DB_PASSWORD = System.getenv().getOrDefault("DB_PASSWORD", "");
+    public static final String SQLITE_BIN = resolveSqliteBin();
+
+    private static String resolveSqliteBin() {
+        String env = System.getenv("SQLITE_BIN");
+        if (env != null && !env.trim().isEmpty()) {
+            return env.trim();
+        }
+        if (new File("/usr/bin/sqlite3").exists()) {
+            return "/usr/bin/sqlite3";
+        }
+        if (new File("/usr/local/bin/sqlite3").exists()) {
+            return "/usr/local/bin/sqlite3";
+        }
+        return "sqlite3";
+    }
 }

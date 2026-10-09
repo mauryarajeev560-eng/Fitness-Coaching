@@ -1,6 +1,16 @@
+# Bytecode and build directories
 bin/
 *.class
+
+# Environment Variables
+.env
+
+# Temporary and log files
+*.log
+sources.txt
+.DS_Store
 *.backup
 *.bak
-.DS_Store
-.env
+
+# SQLite data files (if any)
+data/*.db

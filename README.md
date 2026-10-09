@@ -104,14 +104,23 @@ fitness-platform/
 Simply run the startup script from the project directory:
 
 ```bash
-cd /Users/rajeevkumar/.gemini/antigravity/scratch/fitness-platform
 ./run.sh
 ```
 
-The script will automatically compile all Java classes, initialize the SQLite database with `schema.sql` and `sample_data.sql`, and start the web server on:
+The script will automatically compile all Java classes, initialize the database with `schema.sql` and `sample_data.sql`, and start the web server on:
 👉 **`http://localhost:8080`**
 
-### 2. Demo Credentials
+### 2. Deploy on Render (Docker-based)
+Render's native environment lacks JDK `javac`. We support 1-click Docker deployment:
+
+1. **Push to GitHub**: Push your changes including `Dockerfile` and `render.yaml`.
+2. **On Render Dashboard**:
+   - Create a **New Web Service** connected to your GitHub repository.
+   - Set **Runtime** to **Docker** (Render will detect the `Dockerfile` automatically).
+   - Alternatively, choose **New Blueprint** and select `render.yaml`.
+3. Render will build using OpenJDK 21, install SQLite 3, inject the `$PORT` environment variable, and deploy your live URL.
+
+### 3. Demo Credentials
 
 You can use the **Quick Persona Switcher** at the top of the page, or sign in with:
 

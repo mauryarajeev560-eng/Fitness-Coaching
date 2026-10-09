@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: fitness-coaching-platform
+    runtime: docker
+    plan: free
+    region: oregon
+    branch: main
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: SQLITE_BIN
+        value: /usr/bin/sqlite3

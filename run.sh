@@ -23,8 +23,17 @@ mkdir -p bin data lib
 
 echo "[1/2] Compiling Java source files..."
 find src -name "*.java" > sources.txt
-javac -cp "bin:lib/*" -d bin @sources.txt
+
+CP="bin"
+if [ -d "lib" ] && [ -n "$(ls -A lib 2>/dev/null)" ]; then
+    javac -cp "lib/*" -d bin @sources.txt
+    CP="bin:lib/*"
+else
+    javac -d bin @sources.txt
+fi
 rm -f sources.txt
 
-echo "[2/2] Launching platform on http://localhost:8080 ..."
-java -cp "bin:lib/*" com.fitness.Main
+PORT="${PORT:-8080}"
+echo "[2/2] Launching platform on port ${PORT} ..."
+
+java -cp "$CP" com.fitness.Main
