@@ -22,7 +22,18 @@ public class Main {
         // 2. Start HTTP Server
         try {
             int port = AppConfig.PORT;
-            HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
+            HttpServer server = null;
+            while (server == null && port < AppConfig.PORT + 10) {
+                try {
+                    server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
+                } catch (java.net.BindException e) {
+                    System.out.println("[Bootstrap] Port " + port + " in use, trying " + (port + 1) + "...");
+                    port++;
+                }
+            }
+            if (server == null) {
+                throw new java.net.BindException("No free port available in range.");
+            }
 
             // Register Handlers
             server.createContext("/api/auth", new AuthController());
@@ -41,10 +52,10 @@ public class Main {
             System.out.println("=================================================");
             System.out.println("Ready to serve requests. Press Ctrl+C to terminate.");
 
-            // Keep alive
+            final HttpServer activeServer = server;
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 System.out.println("\n[Shutdown] Stopping server...");
-                server.stop(1);
+                activeServer.stop(1);
                 System.out.println("[Shutdown] Server stopped.");
             }));
 

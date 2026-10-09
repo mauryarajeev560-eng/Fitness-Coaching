@@ -1,23 +1,20 @@
 package com.fitness.db;
 
 import com.fitness.config.AppConfig;
-import com.fitness.util.JsonUtil;
 
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.sql.*;
 import java.util.*;
 
 public class DatabaseManager {
 
     private static DatabaseManager instance;
-    private final String dbPath;
-    private final String sqliteBin;
 
     private DatabaseManager() {
-        this.dbPath = AppConfig.DB_FILE;
-        this.sqliteBin = AppConfig.SQLITE_BIN;
         initDatabase();
     }
 
@@ -28,39 +25,44 @@ public class DatabaseManager {
         return instance;
     }
 
+    /**
+     * Establishes and returns a new JDBC Connection using AppConfig properties.
+     */
+    public Connection getConnection() throws SQLException {
+        return DriverManager.getConnection(AppConfig.DB_URL, AppConfig.DB_USER, AppConfig.DB_PASSWORD);
+    }
+
     private void initDatabase() {
         try {
-            File dbDir = new File(AppConfig.DB_DIR);
-            if (!dbDir.exists()) {
-                dbDir.mkdirs();
+            // Attempt to load PostgreSQL JDBC Driver
+            try {
+                Class.forName("org.postgresql.Driver");
+            } catch (ClassNotFoundException ignored) {
+                // Driver might be autoloaded via JDBC 4.0 SPI
             }
 
-            File dbFile = new File(dbPath);
-            boolean isNewDb = !dbFile.exists() || dbFile.length() == 0;
+            try (Connection conn = getConnection()) {
+                System.out.println("[DatabaseManager] Connected to PostgreSQL via JDBC: " + AppConfig.DB_URL);
 
-            if (isNewDb) {
-                System.out.println("[DatabaseManager] Initializing new database at: " + dbPath);
-                if (new File(AppConfig.SCHEMA_FILE).exists()) {
-                    System.out.println("[DatabaseManager] Applying schema: " + AppConfig.SCHEMA_FILE);
-                    executeSqlFile(AppConfig.SCHEMA_FILE);
-                }
-                if (new File(AppConfig.SAMPLE_DATA_FILE).exists()) {
-                    System.out.println("[DatabaseManager] Seeding sample data: " + AppConfig.SAMPLE_DATA_FILE);
-                    executeSqlFile(AppConfig.SAMPLE_DATA_FILE);
-                }
-            } else {
-                // Ensure tables exist
-                List<Map<String, Object>> tables = query("SELECT name FROM sqlite_master WHERE type='table' AND name='users';", Collections.emptyList());
+                // Check if users table exists in public schema
+                List<Map<String, Object>> tables = query(
+                        "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users';",
+                        Collections.emptyList()
+                );
+
                 if (tables.isEmpty()) {
-                    System.out.println("[DatabaseManager] Users table missing. Applying schema...");
-                    executeSqlFile(AppConfig.SCHEMA_FILE);
-                    executeSqlFile(AppConfig.SAMPLE_DATA_FILE);
+                    System.out.println("[DatabaseManager] Tables missing. Applying schema & initial data...");
+                    if (new File(AppConfig.SCHEMA_FILE).exists()) {
+                        executeSqlFile(AppConfig.SCHEMA_FILE);
+                    }
+                    if (new File(AppConfig.SAMPLE_DATA_FILE).exists()) {
+                        executeSqlFile(AppConfig.SAMPLE_DATA_FILE);
+                    }
                 }
+                System.out.println("[DatabaseManager] Database initialized successfully.");
             }
-            System.out.println("[DatabaseManager] Database initialized successfully.");
         } catch (Exception e) {
-            System.err.println("[DatabaseManager] Error initializing database: " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("[DatabaseManager] Database connection initialization note: " + e.getMessage());
         }
     }
 
@@ -73,57 +75,61 @@ public class DatabaseManager {
         }
     }
 
+    /**
+     * Executes SQL script using JDBC Connection and Statement.
+     */
     public synchronized void executeScript(String script) {
-        try {
-            ProcessBuilder pb = new ProcessBuilder(sqliteBin, dbPath);
-            Process p = pb.start();
-            try (OutputStream os = p.getOutputStream()) {
-                os.write(script.getBytes(StandardCharsets.UTF_8));
-                os.flush();
-            }
-            int exitCode = p.waitFor();
-            if (exitCode != 0) {
-                String err = readStream(p.getErrorStream());
-                throw new RuntimeException("SQLite script error: " + err);
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Error executing script: " + e.getMessage(), e);
-        }
-    }
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement()) {
 
-    public synchronized List<Map<String, Object>> query(String sql, List<Object> params) {
-        String formatted = SqlHelper.formatSql(sql, params);
-        try {
-            ProcessBuilder pb = new ProcessBuilder(sqliteBin, "-json", dbPath, formatted);
-            Process p = pb.start();
-            String stdout = readStream(p.getInputStream());
-            String stderr = readStream(p.getErrorStream());
-            int exitCode = p.waitFor();
-
-            if (exitCode != 0) {
-                throw new RuntimeException("Query error: " + stderr);
-            }
-
-            stdout = stdout.trim();
-            if (stdout.isEmpty()) {
-                return new ArrayList<>();
-            }
-
-            List<Object> list = JsonUtil.parseList(stdout);
-            List<Map<String, Object>> result = new ArrayList<>();
-            for (Object item : list) {
-                if (item instanceof Map) {
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> map = (Map<String, Object>) item;
-                    result.add(map);
+            // Execute SQL statements separated by semicolons
+            String[] commands = script.split(";");
+            for (String cmd : commands) {
+                String trimmed = cmd.trim();
+                if (!trimmed.isEmpty() && !trimmed.startsWith("--")) {
+                    stmt.execute(trimmed);
                 }
             }
-            return result;
-        } catch (Exception e) {
-            throw new RuntimeException("Database query failed for SQL: [" + formatted + "]: " + e.getMessage(), e);
+        } catch (SQLException e) {
+            throw new RuntimeException("Error executing SQL script via JDBC: " + e.getMessage(), e);
         }
     }
 
+    /**
+     * Safely executes a SELECT query using PreparedStatement and returns rows as List of Maps.
+     */
+    public synchronized List<Map<String, Object>> query(String sql, List<Object> params) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            setParameters(pstmt, params);
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                ResultSetMetaData metaData = rs.getMetaData();
+                int columnCount = metaData.getColumnCount();
+
+                while (rs.next()) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    for (int i = 1; i <= columnCount; i++) {
+                        String colName = metaData.getColumnLabel(i);
+                        if (colName == null || colName.isEmpty()) {
+                            colName = metaData.getColumnName(i);
+                        }
+                        row.put(colName.toLowerCase(), rs.getObject(i));
+                    }
+                    result.add(row);
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Database query failed for SQL [" + sql + "]: " + e.getMessage(), e);
+        }
+        return result;
+    }
+
+    /**
+     * Executes a SELECT query expecting a single row result or null.
+     */
     public synchronized Map<String, Object> queryOne(String sql, List<Object> params) {
         List<Map<String, Object>> list = query(sql, params);
         if (list != null && !list.isEmpty()) {
@@ -132,72 +138,49 @@ public class DatabaseManager {
         return null;
     }
 
+    /**
+     * Executes an INSERT query safely using PreparedStatement and returns the generated primary key ID.
+     */
     public synchronized long executeInsert(String sql, List<Object> params) {
-        String formatted = SqlHelper.formatSql(sql, params);
-        String fullSql = formatted + "; SELECT last_insert_rowid() AS id;";
-        try {
-            ProcessBuilder pb = new ProcessBuilder(sqliteBin, "-json", dbPath, fullSql);
-            Process p = pb.start();
-            String stdout = readStream(p.getInputStream());
-            String stderr = readStream(p.getErrorStream());
-            int exitCode = p.waitFor();
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
-            if (exitCode != 0) {
-                throw new RuntimeException("Insert error: " + stderr);
-            }
+            setParameters(pstmt, params);
+            pstmt.executeUpdate();
 
-            List<Object> list = JsonUtil.parseList(stdout.trim());
-            if (!list.isEmpty() && list.get(0) instanceof Map) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> map = (Map<String, Object>) list.get(0);
-                Object idObj = map.get("id");
-                if (idObj instanceof Number) {
-                    return ((Number) idObj).longValue();
+            try (ResultSet rs = pstmt.getGeneratedKeys()) {
+                if (rs.next()) {
+                    return rs.getLong(1);
                 }
             }
             return 0;
-        } catch (Exception e) {
-            throw new RuntimeException("Database insert failed: " + e.getMessage(), e);
+        } catch (SQLException e) {
+            throw new RuntimeException("Database insert failed for SQL [" + sql + "]: " + e.getMessage(), e);
         }
     }
 
+    /**
+     * Executes an UPDATE or DELETE query safely using PreparedStatement and returns affected rows count.
+     */
     public synchronized int executeUpdate(String sql, List<Object> params) {
-        String formatted = SqlHelper.formatSql(sql, params);
-        String fullSql = formatted + "; SELECT changes() AS affected;";
-        try {
-            ProcessBuilder pb = new ProcessBuilder(sqliteBin, "-json", dbPath, fullSql);
-            Process p = pb.start();
-            String stdout = readStream(p.getInputStream());
-            String stderr = readStream(p.getErrorStream());
-            int exitCode = p.waitFor();
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            if (exitCode != 0) {
-                throw new RuntimeException("Update error: " + stderr);
-            }
-
-            List<Object> list = JsonUtil.parseList(stdout.trim());
-            if (!list.isEmpty() && list.get(0) instanceof Map) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> map = (Map<String, Object>) list.get(0);
-                Object affObj = map.get("affected");
-                if (affObj instanceof Number) {
-                    return ((Number) affObj).intValue();
-                }
-            }
-            return 0;
-        } catch (Exception e) {
-            throw new RuntimeException("Database update failed: " + e.getMessage(), e);
+            setParameters(pstmt, params);
+            return pstmt.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("Database update failed for SQL [" + sql + "]: " + e.getMessage(), e);
         }
     }
 
-    private String readStream(InputStream is) throws IOException {
-        StringBuilder sb = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                sb.append(line).append("\n");
+    /**
+     * Binds parameters safely to PreparedStatement.
+     */
+    private void setParameters(PreparedStatement pstmt, List<Object> params) throws SQLException {
+        if (params != null) {
+            for (int i = 0; i < params.size(); i++) {
+                pstmt.setObject(i + 1, params.get(i));
             }
         }
-        return sb.toString();
     }
 }

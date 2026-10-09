@@ -19,12 +19,12 @@ echo "================================================="
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-mkdir -p bin data
+mkdir -p bin data lib
 
 echo "[1/2] Compiling Java source files..."
 find src -name "*.java" > sources.txt
-javac -d bin @sources.txt
+javac -cp "bin:lib/*" -d bin @sources.txt
 rm -f sources.txt
 
 echo "[2/2] Launching platform on http://localhost:8080 ..."
-java -cp bin com.fitness.Main
+java -cp "bin:lib/*" com.fitness.Main

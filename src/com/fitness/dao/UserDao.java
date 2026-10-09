@@ -77,8 +77,9 @@ public class UserDao {
 
         // Create empty profile if user is trainee
         if ("USER".equalsIgnoreCase(user.getRole())) {
-            String profileSql = "INSERT OR IGNORE INTO user_profiles (user_id, age, gender, height, current_weight, target_weight, fitness_goal) " +
-                    "VALUES (?, 25, 'Not Specified', 170.0, 70.0, 68.0, 'General Fitness');";
+            String profileSql = "INSERT INTO user_profiles (user_id, age, gender, height, current_weight, target_weight, fitness_goal) " +
+                    "VALUES (?, 25, 'Not Specified', 170.0, 70.0, 68.0, 'General Fitness') " +
+                    "ON CONFLICT (user_id) DO NOTHING;";
             db.executeUpdate(profileSql, Collections.singletonList(id));
         }
         return id;
